@@ -1,0 +1,55 @@
+version: '3'
+
+services:
+  postgresql:
+    build: ./postgresql
+    image: postgres:latest
+    environment:
+      POSTGRES_PASSWORD: "postgres_password"
+      POSTGRES_USER: "postgres_master"
+      POSTGRES_DB: "myapp"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+  api:
+    build:
+      context: ./api/
+      dockerfile: Dockerfile
+    environment:
+      DJANGO_PROJECT_NAME: "myapp"
+      DJANGO_SETTINGS_MODULE: "myapp.settings"
+      POSTGRES_USER: "postgres_master"
+      POSTGRES_PASSWORD: "postgres_password"
+      POSTGRES_HOST: "postgresql"
+    # command: python manage.py runserver 0.0.0.0:8000
+    command: bash -c "python manage.py makemigrations gmaps && python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - ./api:/myapp
+      - static-data:/myapp/static
+      - media-data:/myapp/media
+      - log-data:/myapp/log
+    ports:
+      - 8000:8000
+    depends_on:
+      - postgresql
+    stdin_open: true
+    tty: true
+  web:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    image: nginx:1.19.0-alpine
+    volumes:
+      - ./config/nginx:/etc/nginx/conf.d
+      - static-data:/home/app/web/staticfiles
+      - media-data:/home/app/web/mediafiles
+    ports:
+      - 80:80
+    depends_on:
+      - api
+volumes:
+  pg_data:
+  static-data:
+  media-data:
+  log-data:
